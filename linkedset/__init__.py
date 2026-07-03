@@ -11,10 +11,10 @@ from typing import Generic, TypeVar, overload
 
 __all__ = ["DoublyLinkedSet"]
 
-T = TypeVar("T")
+_T = TypeVar("_T")
 
 
-class _LinkBox(Generic[T]):
+class _LinkBox(Generic[_T]):
     """A link in a doubly linked list that has a reference to the actual object in the link.
 
     The :class:`_LinkBox` is a container for the actual object in the list. It is used to
@@ -37,7 +37,7 @@ class _LinkBox(Generic[T]):
 
     __slots__ = ("next", "owning_list", "prev", "value")
 
-    def __init__(self, owner: DoublyLinkedSet[T], value: T | None) -> None:
+    def __init__(self, owner: DoublyLinkedSet[_T], value: _T | None) -> None:
         """Create a new link box.
 
         Args:
@@ -46,10 +46,10 @@ class _LinkBox(Generic[T]):
                 the link box is considered erased (default). The root box of the list
                 should be created with a None value.
         """
-        self.prev: _LinkBox[T] = self
-        self.next: _LinkBox[T] = self
-        self.value: T | None = value
-        self.owning_list: DoublyLinkedSet[T] = owner
+        self.prev: _LinkBox[_T] = self
+        self.next: _LinkBox[_T] = self
+        self.value: _T | None = value
+        self.owning_list: DoublyLinkedSet[_T] = owner
 
     @property
     def erased(self) -> bool:
@@ -72,7 +72,7 @@ class _LinkBox(Generic[T]):
         )
 
 
-class DoublyLinkedSet(Sequence[T], MutableSet[T], Generic[T]):
+class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
     """A doubly linked ordered set of nodes.
 
     The container is both a :class:`collections.abc.Sequence` (ordered, indexable) and a
@@ -104,7 +104,7 @@ class DoublyLinkedSet(Sequence[T], MutableSet[T], Generic[T]):
 
     __slots__ = ("_length", "_root", "_value_ids_to_boxes")
 
-    def __init__(self, values: Iterable[T] | None = None) -> None:
+    def __init__(self, values: Iterable[_T] | None = None) -> None:
         # Using the root node simplifies the mutation implementation a lot
         # The list is circular. The root node is the only node that is not a part of the list values
         root_ = _LinkBox(self, None)
@@ -114,7 +114,7 @@ class DoublyLinkedSet(Sequence[T], MutableSet[T], Generic[T]):
         if values is not None:
             self.extend(values)
 
-    def __iter__(self) -> Iterator[T]:
+    def __iter__(self) -> Iterator[_T]:
         """Iterate over the elements in the list.
 
         - If new elements are inserted after the current node, the iterator will
@@ -133,7 +133,7 @@ class DoublyLinkedSet(Sequence[T], MutableSet[T], Generic[T]):
                 yield box.value
             box = box.next
 
-    def __reversed__(self) -> Iterator[T]:
+    def __reversed__(self) -> Iterator[_T]:
         """Iterate over the elements in the list in reverse order."""
         box = self._root.prev
         while box is not self._root:
@@ -177,9 +177,9 @@ class DoublyLinkedSet(Sequence[T], MutableSet[T], Generic[T]):
         raise ValueError(f"{value!r} is not in the set")
 
     @overload
-    def __getitem__(self, index: int) -> T: ...
+    def __getitem__(self, index: int) -> _T: ...
     @overload
-    def __getitem__(self, index: slice) -> Sequence[T]: ...
+    def __getitem__(self, index: slice) -> Sequence[_T]: ...
 
     def __getitem__(self, index):
         """Get the node at the given index.
@@ -207,9 +207,9 @@ class DoublyLinkedSet(Sequence[T], MutableSet[T], Generic[T]):
 
     def _insert_one_after(
         self,
-        box: _LinkBox[T],
-        new_value: T,
-    ) -> _LinkBox[T]:
+        box: _LinkBox[_T],
+        new_value: _T,
+    ) -> _LinkBox[_T]:
         """Insert a new value after the given box.
 
         All insertion methods should call this method to ensure that the list is updated correctly.
@@ -256,15 +256,15 @@ class DoublyLinkedSet(Sequence[T], MutableSet[T], Generic[T]):
 
     def _insert_many_after(
         self,
-        box: _LinkBox[T],
-        new_values: Iterable[T],
+        box: _LinkBox[_T],
+        new_values: Iterable[_T],
     ):
         """Insert multiple new values after the given box."""
         insertion_point = box
         for new_value in new_values:
             insertion_point = self._insert_one_after(insertion_point, new_value)
 
-    def remove(self, value: T) -> None:
+    def remove(self, value: _T) -> None:
         """Remove a node from the list."""
         if (value_id := id(value)) not in self._value_ids_to_boxes:
             raise ValueError(f"Value {value!r} is not in the list")
@@ -276,7 +276,7 @@ class DoublyLinkedSet(Sequence[T], MutableSet[T], Generic[T]):
         self._length -= 1
         del self._value_ids_to_boxes[value_id]
 
-    def add(self, value: T) -> None:
+    def add(self, value: _T) -> None:
         """Add ``value`` to the end of the set if it is not already present.
 
         Unlike :meth:`append`, this is idempotent: if ``value`` (by identity) is already
@@ -286,7 +286,7 @@ class DoublyLinkedSet(Sequence[T], MutableSet[T], Generic[T]):
         if id(value) not in self._value_ids_to_boxes:
             self.append(value)
 
-    def discard(self, value: T) -> None:
+    def discard(self, value: _T) -> None:
         """Remove ``value`` from the set if it is present, without raising otherwise.
 
         This implements :meth:`collections.abc.MutableSet.discard`.
@@ -294,21 +294,21 @@ class DoublyLinkedSet(Sequence[T], MutableSet[T], Generic[T]):
         if id(value) in self._value_ids_to_boxes:
             self.remove(value)
 
-    def append(self, value: T) -> None:
+    def append(self, value: _T) -> None:
         """Append a node to the list."""
         _ = self._insert_one_after(self._root.prev, value)
 
     def extend(
         self,
-        values: Iterable[T],
+        values: Iterable[_T],
     ) -> None:
         for value in values:
             self.append(value)
 
     def insert_after(
         self,
-        value: T,
-        new_values: Iterable[T],
+        value: _T,
+        new_values: Iterable[_T],
     ) -> None:
         """Insert new nodes after the given node.
 
@@ -323,8 +323,8 @@ class DoublyLinkedSet(Sequence[T], MutableSet[T], Generic[T]):
 
     def insert_before(
         self,
-        value: T,
-        new_values: Iterable[T],
+        value: _T,
+        new_values: Iterable[_T],
     ) -> None:
         """Insert new nodes before the given node.
 
