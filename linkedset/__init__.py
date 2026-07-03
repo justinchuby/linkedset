@@ -104,7 +104,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
     in the same order. ``None`` is not a valid value in the set.
     """
 
-    __slots__ = ("_length", "_root", "_value_ids_to_boxes")
+    __slots__ = ("_length", "_root", "_value_to_boxes")
 
     def __init__(self, values: Iterable[_T] | None = None) -> None:
         # Using the root node simplifies the mutation implementation a lot
@@ -112,7 +112,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         root_ = _LinkBox(self, None)
         self._root: _LinkBox = root_
         self._length = 0
-        self._value_ids_to_boxes: dict[int, _LinkBox] = {}
+        self._value_to_boxes: dict[_T, _LinkBox] = {}
         if values is not None:
             self.extend(values)
 
@@ -145,19 +145,17 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
             box = box.prev
 
     def __len__(self) -> int:
-        assert self._length == len(self._value_ids_to_boxes), (
+        assert self._length == len(self._value_to_boxes), (
             "Bug in the implementation: length mismatch"
         )
         return self._length
 
     def _find_box_for_equal_value(self, value: object) -> _LinkBox[_T] | None:
-        """Find and return the box containing a value equal to the given value."""
-        box = self._root.next
-        while box is not self._root:
-            if not box.erased and box.value == value:
-                return box
-            box = box.next
-        return None
+        """Find and return the box containing a value equal to the given value.
+        
+        This uses the dictionary for O(1) lookup if the value is hashable.
+        """
+        return self._value_to_boxes.get(value)
 
     def __contains__(self, value: object) -> bool:
         """Return whether ``value`` is in the set using value equality."""
@@ -281,7 +279,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
 
         # Be sure to update the length and mapping
         self._length += 1
-        self._value_ids_to_boxes[id(new_value)] = new_box
+        self._value_to_boxes[new_value] = new_box
 
         return new_box
 
@@ -297,24 +295,24 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
 
     def remove(self, value: _T) -> None:
         """Remove a node from the list."""
-        if (value_id := id(value)) not in self._value_ids_to_boxes:
+        box = self._value_to_boxes.get(value)
+        if box is None:
             raise ValueError(f"Value {value!r} is not in the list")
-        box = self._value_ids_to_boxes[value_id]
         # Remove the link box and detach the value from the box
         box.erase()
 
         # Be sure to update the length and mapping
         self._length -= 1
-        del self._value_ids_to_boxes[value_id]
+        del self._value_to_boxes[value]
 
     def add(self, value: _T) -> None:
         """Add ``value`` to the end of the set if it is not already present.
 
-        Unlike :meth:`append`, this is idempotent: if ``value`` (by identity) is already
+        Unlike :meth:`append`, this is idempotent: if ``value`` (by equality) is already
         in the set, its position is left unchanged. This implements
         :meth:`collections.abc.MutableSet.add`.
         """
-        if id(value) not in self._value_ids_to_boxes:
+        if value not in self._value_to_boxes:
             self.append(value)
 
     def discard(self, value: _T) -> None:
@@ -322,7 +320,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
 
         This implements :meth:`collections.abc.MutableSet.discard`.
         """
-        if id(value) in self._value_ids_to_boxes:
+        if value in self._value_to_boxes:
             self.remove(value)
 
     def append(self, value: _T) -> None:
@@ -372,7 +370,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         """
         if value is None:
             raise TypeError(f"{self.__class__.__name__} does not support None values")
-        if id(value) in self._value_ids_to_boxes:
+        if value in self._value_to_boxes:
             self.remove(value)
         length = self._length
         if index < 0:
@@ -422,7 +420,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         self._root.prev = self._root
         self._root.next = self._root
         self._length = 0
-        self._value_ids_to_boxes.clear()
+        self._value_to_boxes.clear()
 
     def reverse(self) -> None:
         """Reverse the elements of the set in place.
