@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, MutableSet, Sequence
 from typing import Generic, TypeVar, overload
 
 T = TypeVar("T")
@@ -64,15 +64,19 @@ class _LinkBox(Generic[T]):
         self.value = None
 
     def __repr__(self) -> str:
-        return f"_LinkBox({self.value!r}, erased={self.erased}, prev={self.prev.value!r}, next={self.next.value!r})"
+        return (
+            f"_LinkBox({self.value!r}, erased={self.erased}, "
+            f"prev={self.prev.value!r}, next={self.next.value!r})"
+        )
 
 
-class DoublyLinkedSet(Sequence[T], Generic[T]):
+class DoublyLinkedSet(Sequence[T], MutableSet[T], Generic[T]):
     """A doubly linked ordered set of nodes.
 
-    The container can be viewed as a set as it does not allow duplicate values. The order of the
-    elements is maintained. One can typically treat it as a doubly linked list with list-like
-    methods implemented.
+    The container is both a :class:`collections.abc.Sequence` (ordered, indexable) and a
+    :class:`collections.abc.MutableSet`. It does not allow duplicate values and maintains
+    insertion order. One can treat it as a doubly linked list with list-like methods, or as
+    a mutable set supporting ``&``, ``|``, ``-``, ``^`` and their in-place variants.
 
     Adding and removing elements from the set during iteration is safe. Moving elements
     from one set to another is also safe.
@@ -90,7 +94,10 @@ class DoublyLinkedSet(Sequence[T], Generic[T]):
         although accessing nodes at either end of the set is O(1). I.e.
         ``linked_set[0]`` and ``linked_set[-1]`` are O(1).
 
-    Values need to be hashable. ``None`` is not a valid value in the set.
+    Membership, uniqueness and set operations are based on object **identity** (``id(value)``),
+    not equality. Two distinct objects that compare equal are treated as different elements.
+    Because it is a mutable set, instances are not hashable, and ``==`` uses set semantics
+    (order-insensitive). ``None`` is not a valid value in the set.
     """
 
     __slots__ = ("_length", "_root", "_value_ids_to_boxes")
@@ -138,6 +145,34 @@ class DoublyLinkedSet(Sequence[T], Generic[T]):
             "Bug in the implementation: length mismatch"
         )
         return self._length
+
+    def __contains__(self, value: object) -> bool:
+        """Return whether ``value`` is in the set, using object identity."""
+        return id(value) in self._value_ids_to_boxes
+
+    def count(self, value: object) -> int:
+        """Return the number of occurrences of ``value`` (0 or 1), using object identity."""
+        return 1 if id(value) in self._value_ids_to_boxes else 0
+
+    def index(self, value: object, start: int = 0, stop: int | None = None) -> int:
+        """Return the index of ``value`` in the set, using object identity.
+
+        Raises:
+            ValueError: If ``value`` is not present in ``self[start:stop]``.
+        """
+        length = self._length
+        if start < 0:
+            start = max(length + start, 0)
+        if stop is None:
+            stop = length
+        elif stop < 0:
+            stop += length
+        for i, item in enumerate(self):
+            if i >= stop:
+                break
+            if i >= start and item is value:
+                return i
+        raise ValueError(f"{value!r} is not in the set")
 
     @overload
     def __getitem__(self, index: int) -> T: ...
@@ -238,6 +273,24 @@ class DoublyLinkedSet(Sequence[T], Generic[T]):
         # Be sure to update the length and mapping
         self._length -= 1
         del self._value_ids_to_boxes[value_id]
+
+    def add(self, value: T) -> None:
+        """Add ``value`` to the end of the set if it is not already present.
+
+        Unlike :meth:`append`, this is idempotent: if ``value`` (by identity) is already
+        in the set, its position is left unchanged. This implements
+        :meth:`collections.abc.MutableSet.add`.
+        """
+        if id(value) not in self._value_ids_to_boxes:
+            self.append(value)
+
+    def discard(self, value: T) -> None:
+        """Remove ``value`` from the set if it is present, without raising otherwise.
+
+        This implements :meth:`collections.abc.MutableSet.discard`.
+        """
+        if id(value) in self._value_ids_to_boxes:
+            self.remove(value)
 
     def append(self, value: T) -> None:
         """Append a node to the list."""
