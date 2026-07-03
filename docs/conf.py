@@ -24,7 +24,7 @@ extensions = [
     "myst_parser",
 ]
 
-templates_path = ["_templates"]
+templates_path: list[str] = []
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- HTML output -------------------------------------------------------------
