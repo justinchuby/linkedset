@@ -152,14 +152,14 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
 
     def _find_box_for_equal_value(self, value: object) -> _LinkBox[_T] | None:
         """Find and return the box containing a value equal to the given value.
-        
-        This uses the dictionary for O(1) lookup if the value is hashable.
+
+        This uses the dictionary for O(1) lookup. Values must be hashable.
         """
         return self._value_to_boxes.get(value)
 
     def __contains__(self, value: object) -> bool:
-        """Return whether ``value`` is in the set using value equality."""
-        return any(item == value for item in self)
+        """Return whether ``value`` is in the set using value equality (O(1))."""
+        return value in self._value_to_boxes
 
     def __eq__(self, other: object) -> bool:
         """Return whether ``other`` is an equal, equally-ordered set.
@@ -180,8 +180,8 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
     __hash__ = None  # type: ignore[assignment]  # ordered, mutable -> unhashable
 
     def count(self, value: object) -> int:
-        """Return the number of occurrences of ``value`` (0 or 1) using value equality."""
-        return sum(1 for item in self if item == value)
+        """Return the number of occurrences of ``value`` (0 or 1) using value equality (O(1))."""
+        return 1 if value in self._value_to_boxes else 0
 
     def index(self, value: object, start: int = 0, stop: int | None = None) -> int:
         """Return the index of ``value`` in the set using value equality.
@@ -337,7 +337,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
     def appendleft(self, value: _T) -> None:
         """Add ``value`` to the front of the set (deque-style).
 
-        If ``value`` is already present (by identity), it is moved to the front.
+        If ``value`` is already present (by equality), it is moved to the front.
         """
         _ = self._insert_one_after(self._root, value)
 
@@ -479,10 +479,10 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
     def __and__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
         if not isinstance(other, Iterable):
             return NotImplemented
-        other_list = list(other)
+        other_set = set(other)
         result: DoublyLinkedSet[_T] = DoublyLinkedSet()
         for value in self:
-            if any(value == other_value for other_value in other_list):
+            if value in other_set:
                 result.append(value)
         return result
 
@@ -492,7 +492,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
             return NotImplemented
         result: DoublyLinkedSet[_T] = DoublyLinkedSet()
         for value in other:
-            if any(value == self_value for self_value in self):
+            if value in self._value_to_boxes:
                 result.append(value)
         return result
 
@@ -515,10 +515,10 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
     def __sub__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
         if not isinstance(other, Iterable):
             return NotImplemented
-        other_list = list(other)
+        other_set = set(other)
         result: DoublyLinkedSet[_T] = DoublyLinkedSet()
         for value in self:
-            if not any(value == other_value for other_value in other_list):
+            if value not in other_set:
                 result.append(value)
         return result
 
@@ -527,7 +527,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
             return NotImplemented
         result: DoublyLinkedSet[_T] = DoublyLinkedSet()
         for value in other:
-            if not any(value == self_value for self_value in self):
+            if value not in self._value_to_boxes:
                 result.append(value)
         return result
 
@@ -535,14 +535,15 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         if not isinstance(other, Iterable):
             return NotImplemented
         other_list = list(other)
+        other_set = set(other_list)
         result: DoublyLinkedSet[_T] = DoublyLinkedSet()
         # Add values from self that are not in other
         for value in self:
-            if not any(value == other_value for other_value in other_list):
+            if value not in other_set:
                 result.append(value)
         # Add values from other that are not in self
         for other_value in other_list:
-            if not any(other_value == self_value for self_value in self):
+            if other_value not in self._value_to_boxes:
                 result.append(other_value)
         return result
 
@@ -551,18 +552,19 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         if not isinstance(other, Iterable):
             return NotImplemented
         other_list = list(other)
+        other_set = set(other_list)
         result: DoublyLinkedSet[_T] = DoublyLinkedSet()
         for value in other_list:
-            if not any(value == self_value for self_value in self):
+            if value not in self._value_to_boxes:
                 result.append(value)
         for value in self:
-            if not any(value == other_value for other_value in other_list):
+            if value not in other_set:
                 result.append(value)
         return result
 
     def isdisjoint(self, other: Iterable[_T]) -> bool:
         """Return ``True`` if the set has no elements (by equality) in common with ``other``."""
-        return not any(any(other_value == self_value for self_value in self) for other_value in other)
+        return not any(value in self._value_to_boxes for value in other)
 
     def _unsupported_ordering(self, _other: object) -> bool:
         raise TypeError(
