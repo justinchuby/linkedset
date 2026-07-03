@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "linkedset"
-version = "0.1.0"
+version = "0.2.0"
 description = "Ordered set robust against mutation during iteration in Python"
 readme = "README.md"
 license = "MIT"
