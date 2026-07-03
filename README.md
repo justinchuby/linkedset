@@ -91,7 +91,7 @@ DoublyLinkedSet(["a", "b"]) == DoublyLinkedSet(["b", "a"])  # False
 ### Deque- and list-style methods
 
 Because it is ordered, it also offers the familiar `deque`/`list` mutators (all keeping the
-set's uniqueness and identity semantics):
+set's uniqueness and value equality semantics):
 
 ```python
 s = DoublyLinkedSet(["a", "b", "c"])
@@ -109,20 +109,21 @@ s2 = s.copy()           # shallow copy, order preserved
 
 ## Semantics
 
-- Membership and set operations are based on object **identity** (`id(value)`), not equality.
-  Two distinct objects that compare equal are treated as different elements.
+- Membership and set operations are based on value **equality** (`==`), not object identity.
+  Two distinct objects that compare equal are treated as the same element.
 - `==` is **order-sensitive** (it is an *ordered* set): equal only when the same elements, by
-  identity, appear in the same order. Instances are **not hashable** (mutable set).
+  value equality, appear in the same order. Instances are **not hashable** (mutable set).
   Ordering/subset comparisons (`<`, `<=`, `>`, `>=`) are **not supported** (they raise
   `TypeError`), since a subset relation would be ambiguous next to order-sensitive equality;
   use the set algebra (`&`, `|`, `-`, `^`) or `isdisjoint()` instead.
 - `None` is not a valid value.
 - Accessing by index is `O(n)`, except the ends (`s[0]`, `s[-1]`) which are `O(1)`.
+- All values must be **hashable** (can be used as dictionary keys) for efficient membership lookups.
 
 ## Complexity
 
 `DoublyLinkedSet` is a doubly linked list paired with a `dict` mapping each element's
-`id()` to its list node. That combination gives set-like `O(1)` membership and endpoint
+value to its list node. That combination gives set-like `O(1)` membership and endpoint
 mutation, while preserving order and safe mutation during iteration.
 
 Let `n` be the size of the set (and `m` the size of the other operand for binary set
@@ -130,7 +131,7 @@ operations).
 
 | Operation | Complexity | Notes |
 | --- | --- | --- |
-| `x in s`, `s.count(x)` | `O(1)` | `dict` lookup by `id(x)` |
+| `x in s`, `s.count(x)` | `O(1)` | `dict` lookup by value (requires hashable) |
 | `len(s)` | `O(1)` | length is tracked, not counted |
 | `s.append(x)`, `s.add(x)`, `s.appendleft(x)` | `O(1)` | insert at a known end |
 | `s.remove(x)`, `s.discard(x)` | `O(1)` | unlink the node, no shifting |
@@ -149,7 +150,7 @@ operations).
 | `s.isdisjoint(t)` | `O(n)` | one pass with `O(1)` lookups |
 
 Space is `O(n)`: every element is wrapped in a small link node and referenced once from the
-`id`-keyed index.
+value-keyed index.
 
 Mutating during iteration stays `O(1)` per operation. Removed nodes are unlinked from their
 neighbours immediately, so a traversal never pays to skip over dead nodes — the only cost is
