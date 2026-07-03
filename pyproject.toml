@@ -26,7 +26,7 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/justinchuby/linkedset"
-Documentation = "https://justinchuby.github.io/linkedset/"
+Documentation = "https://linkedset.readthedocs.io/"
 Repository = "https://github.com/justinchuby/linkedset"
 Issues = "https://github.com/justinchuby/linkedset/issues"
 
