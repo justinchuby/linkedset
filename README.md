@@ -76,12 +76,31 @@ a ^ b   # symmetric    -> a, b, d
 
 a.add("x")        # idempotent add (no-op if already present)
 a.discard("z")    # remove if present, never raises
-a.pop()           # remove and return the first element
+a.pop()           # remove and return the last element (list-style; pass an index too)
 a |= b            # in-place update
 
 # `==` is order-sensitive, because the set is ordered:
 DoublyLinkedSet(["a", "b"]) == DoublyLinkedSet(["a", "b"])  # True
 DoublyLinkedSet(["a", "b"]) == DoublyLinkedSet(["b", "a"])  # False
+```
+
+### Deque- and list-style methods
+
+Because it is ordered, it also offers the familiar `deque`/`list` mutators (all keeping the
+set's uniqueness and identity semantics):
+
+```python
+s = DoublyLinkedSet(["a", "b", "c"])
+
+s.appendleft("z")       # -> z, a, b, c
+s.extendleft(["x", "y"])# -> y, x, z, a, b, c  (prepended, reversed like deque)
+s.popleft()             # removes and returns "y"
+s.pop()                 # removes and returns the last element ("c")
+s.pop(1)                # removes and returns the element at index 1
+s.insert(1, "q")        # insert before index 1 (index clamped like list.insert)
+s.rotate(1)             # rotate right; negative rotates left
+s.reverse()             # reverse in place
+s2 = s.copy()           # shallow copy, order preserved
 ```
 
 ## Semantics
@@ -106,14 +125,17 @@ operations).
 | --- | --- | --- |
 | `x in s`, `s.count(x)` | `O(1)` | `dict` lookup by `id(x)` |
 | `len(s)` | `O(1)` | length is tracked, not counted |
-| `s.append(x)`, `s.add(x)` | `O(1)` | insert at the tail |
+| `s.append(x)`, `s.add(x)`, `s.appendleft(x)` | `O(1)` | insert at a known end |
 | `s.remove(x)`, `s.discard(x)` | `O(1)` | unlink the node, no shifting |
+| `s.extend(xs)`, `s.extendleft(xs)` | `O(k)` | `k = len(xs)`; `O(1)` per element |
 | `s.insert_after(v, xs)`, `s.insert_before(v, xs)` | `O(k)` | `k = len(xs)`; `O(1)` per element |
-| `s.pop()` | `O(1)` | removes and returns the first element |
+| `s.pop()`, `s.popleft()` | `O(1)` | remove from an end |
+| `s.pop(i)`, `s.insert(i, x)` | `O(\|i\|)` | walks to the index from the nearer end |
 | `s[0]`, `s[-1]` | `O(1)` | endpoints are reachable directly |
 | `s[i]` | `O(\|i\|)` | walks from the nearer end |
 | `s.index(x)` | `O(n)` | linear scan for position |
-| `s.clear()` | `O(n)` | |
+| `s.rotate(n)` | `O(n mod len(s))` | relink only, no node churn |
+| `s.reverse()`, `s.copy()`, `s.clear()` | `O(n)` | |
 | iteration, `reversed(s)`, `s == other` | `O(n)` | |
 | `s[a:b]` (slice) | `O(n)` | materialises a tuple |
 | `s \| t`, `s & t`, `s - t`, `s ^ t` | `O(n + m)` | each membership test is `O(1)` |

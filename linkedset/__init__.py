@@ -325,6 +325,124 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         for value in values:
             self.append(value)
 
+    def appendleft(self, value: _T) -> None:
+        """Add ``value`` to the front of the set (deque-style).
+
+        If ``value`` is already present (by identity), it is moved to the front.
+        """
+        _ = self._insert_one_after(self._root, value)
+
+    def extendleft(self, values: Iterable[_T]) -> None:
+        """Prepend each value in ``values`` to the front of the set (deque-style).
+
+        As with :meth:`collections.deque.extendleft`, the prepended items end up in reverse
+        order relative to ``values``.
+        """
+        for value in values:
+            self.appendleft(value)
+
+    def _box_at(self, index: int) -> _LinkBox[_T]:
+        """Return the live link box at ``index`` in ``[0, len)``, walking from the nearer end."""
+        if index <= self._length - 1 - index:
+            box = self._root.next
+            for _ in range(index):
+                box = box.next
+        else:
+            box = self._root.prev
+            for _ in range(self._length - 1 - index):
+                box = box.prev
+        return box
+
+    def insert(self, index: int, value: _T) -> None:
+        """Insert ``value`` before position ``index`` (list/deque-style).
+
+        ``index`` is clamped like :meth:`list.insert`. If ``value`` is already present it is
+        removed first, so ``index`` refers to a position in the resulting sequence.
+        """
+        if value is None:
+            raise TypeError(f"{self.__class__.__name__} does not support None values")
+        if id(value) in self._value_ids_to_boxes:
+            self.remove(value)
+        length = self._length
+        if index < 0:
+            index = max(length + index, 0)
+        if index >= length:
+            self.append(value)
+            return
+        target = self._box_at(index)
+        self._insert_one_after(target.prev, value)
+
+    def pop(self, index: int = -1) -> _T:
+        """Remove and return the value at ``index`` (default: the last one, list-style).
+
+        Raises:
+            IndexError: If the set is empty or ``index`` is out of range.
+        """
+        if self._length == 0:
+            raise IndexError("pop from empty DoublyLinkedSet")
+        value = self[index]
+        self.remove(value)
+        return value
+
+    def popleft(self) -> _T:
+        """Remove and return the first value (deque-style).
+
+        Raises:
+            IndexError: If the set is empty.
+        """
+        if self._length == 0:
+            raise IndexError("popleft from empty DoublyLinkedSet")
+        value = self[0]
+        self.remove(value)
+        return value
+
+    def clear(self) -> None:
+        """Remove all elements from the set."""
+        self._root.prev = self._root
+        self._root.next = self._root
+        self._length = 0
+        self._value_ids_to_boxes.clear()
+
+    def reverse(self) -> None:
+        """Reverse the elements of the set in place."""
+        node = self._root.next
+        while node is not self._root:
+            nxt = node.next
+            node.next, node.prev = node.prev, node.next
+            node = nxt
+        self._root.next, self._root.prev = self._root.prev, self._root.next
+
+    def rotate(self, n: int = 1) -> None:
+        """Rotate the set ``n`` steps to the right (deque-style).
+
+        Negative ``n`` rotates to the left. ``rotate(1)`` moves the last element to the front.
+        """
+        length = self._length
+        if length <= 1:
+            return
+        n %= length
+        if n == 0:
+            return
+        # The new first element is the n-th element counted from the end.
+        new_head = self._root.prev
+        for _ in range(n - 1):
+            new_head = new_head.prev
+        new_tail = new_head.prev
+        old_head = self._root.next
+        old_tail = self._root.prev
+        # Close the value ring, removing the root sentinel from between old_tail and old_head.
+        old_tail.next = old_head
+        old_head.prev = old_tail
+        # Splice the root sentinel back in between new_tail and new_head.
+        new_tail.next = self._root
+        self._root.prev = new_tail
+        self._root.next = new_head
+        new_head.prev = self._root
+
+    def copy(self) -> DoublyLinkedSet[_T]:
+        """Return a shallow copy of the set, preserving order."""
+        return DoublyLinkedSet(self)
+
     def insert_after(
         self,
         value: _T,

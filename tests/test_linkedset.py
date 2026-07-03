@@ -225,15 +225,26 @@ class TestSetInterface:
         s.discard("a")
         assert list(s) == []
 
-    def test_pop(self):
+    def test_pop_returns_last_by_default(self):
         s = DoublyLinkedSet(["a", "b", "c"])
-        assert s.pop() == "a"
-        assert list(s) == ["b", "c"]
+        assert s.pop() == "c"  # list-style: last element
+        assert list(s) == ["a", "b"]
+
+    def test_pop_with_index(self):
+        s = DoublyLinkedSet(["a", "b", "c", "d"])
+        assert s.pop(0) == "a"
+        assert s.pop(1) == "c"
+        assert list(s) == ["b", "d"]
 
     def test_pop_empty_raises(self):
         s: DoublyLinkedSet[str] = DoublyLinkedSet()
-        with pytest.raises(KeyError):
+        with pytest.raises(IndexError):
             s.pop()
+
+    def test_pop_out_of_range_raises(self):
+        s = DoublyLinkedSet(["a"])
+        with pytest.raises(IndexError):
+            s.pop(5)
 
     def test_clear(self):
         s = DoublyLinkedSet(["a", "b", "c"])
@@ -318,3 +329,106 @@ class TestSetInterface:
             s.index(a, 1)
         with pytest.raises(ValueError):
             s.index(c, 0, 2)
+
+
+class TestDequeInterface:
+    def test_appendleft(self):
+        s = DoublyLinkedSet(["a", "b"])
+        s.appendleft("z")
+        assert list(s) == ["z", "a", "b"]
+
+    def test_appendleft_moves_existing(self):
+        s = DoublyLinkedSet(["a", "b", "c"])
+        s.appendleft("c")
+        assert list(s) == ["c", "a", "b"]
+
+    def test_extendleft_reverses(self):
+        s = DoublyLinkedSet(["a"])
+        s.extendleft(["x", "y"])
+        assert list(s) == ["y", "x", "a"]
+
+    def test_popleft(self):
+        s = DoublyLinkedSet(["a", "b", "c"])
+        assert s.popleft() == "a"
+        assert list(s) == ["b", "c"]
+
+    def test_popleft_empty_raises(self):
+        s: DoublyLinkedSet[str] = DoublyLinkedSet()
+        with pytest.raises(IndexError):
+            s.popleft()
+
+    def test_insert_middle(self):
+        s = DoublyLinkedSet(["a", "b", "c"])
+        s.insert(1, "z")
+        assert list(s) == ["a", "z", "b", "c"]
+
+    def test_insert_clamps_like_list(self):
+        assert list(_inserted(["a", "b"], 0, "z")) == ["z", "a", "b"]
+        assert list(_inserted(["a", "b"], 99, "z")) == ["a", "b", "z"]
+        assert list(_inserted(["a", "b"], -1, "z")) == ["a", "z", "b"]
+        assert list(_inserted(["a", "b"], -99, "z")) == ["z", "a", "b"]
+
+    def test_insert_existing_is_moved(self):
+        s = DoublyLinkedSet(["a", "b", "c", "d"])
+        s.insert(1, "d")  # remove then re-insert at index 1 of the result
+        assert list(s) == ["a", "d", "b", "c"]
+
+    def test_rotate_right(self):
+        s = DoublyLinkedSet(["a", "b", "c", "d", "e"])
+        s.rotate()
+        assert list(s) == ["e", "a", "b", "c", "d"]
+        s.rotate(2)
+        assert list(s) == ["c", "d", "e", "a", "b"]
+
+    def test_rotate_left_and_wrap(self):
+        s = DoublyLinkedSet(["a", "b", "c", "d", "e"])
+        s.rotate(-1)
+        assert list(s) == ["b", "c", "d", "e", "a"]
+        s2 = DoublyLinkedSet(["a", "b", "c"])
+        s2.rotate(3)  # full turn -> unchanged
+        assert list(s2) == ["a", "b", "c"]
+
+    def test_rotate_noop_on_small(self):
+        s: DoublyLinkedSet[str] = DoublyLinkedSet()
+        s.rotate(3)
+        assert list(s) == []
+        one = DoublyLinkedSet(["a"])
+        one.rotate(5)
+        assert list(one) == ["a"]
+
+    def test_reverse(self):
+        s = DoublyLinkedSet(["a", "b", "c", "d"])
+        s.reverse()
+        assert list(s) == ["d", "c", "b", "a"]
+        # Reversing twice restores the original order.
+        s.reverse()
+        assert list(s) == ["a", "b", "c", "d"]
+
+    def test_reverse_preserves_membership_and_length(self):
+        s = DoublyLinkedSet(["a", "b", "c"])
+        s.reverse()
+        assert len(s) == 3
+        assert "b" in s
+        assert list(reversed(s)) == ["a", "b", "c"]
+
+    def test_copy_is_independent(self):
+        s = DoublyLinkedSet(["a", "b"])
+        c = s.copy()
+        assert c is not s
+        assert list(c) == ["a", "b"]
+        c.append("z")
+        assert list(s) == ["a", "b"]
+
+    def test_integrity_after_mixed_ops(self):
+        s = DoublyLinkedSet(["a", "b", "c", "d", "e"])
+        s.rotate(2)
+        s.reverse()
+        s.insert(1, "q")
+        s.appendleft("head")
+        assert len(s) == len(list(s))
+
+
+def _inserted(values, index, value):
+    s = DoublyLinkedSet(values)
+    s.insert(index, value)
+    return s
