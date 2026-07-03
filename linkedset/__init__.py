@@ -97,10 +97,10 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         although accessing nodes at either end of the set is O(1). I.e.
         ``linked_set[0]`` and ``linked_set[-1]`` are O(1).
 
-    Membership, uniqueness and set operations are based on object **identity** (``id(value)``),
-    not equality. Two distinct objects that compare equal are treated as different elements.
+    Membership, uniqueness and set operations are based on value **equality** (``==``),
+    not object identity. Two objects that compare equal are treated as the same element.
     Because it is a mutable set, instances are not hashable. Since the set is *ordered*, ``==``
-    is order-sensitive: two sets are equal only when they hold the same elements (by identity)
+    is order-sensitive: two sets are equal only when they hold the same elements (by value)
     in the same order. ``None`` is not a valid value in the set.
     """
 
@@ -150,16 +150,25 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         )
         return self._length
 
+    def _find_box_for_equal_value(self, value: object) -> _LinkBox[_T] | None:
+        """Find and return the box containing a value equal to the given value."""
+        box = self._root.next
+        while box is not self._root:
+            if not box.erased and box.value == value:
+                return box
+            box = box.next
+        return None
+
     def __contains__(self, value: object) -> bool:
-        """Return whether ``value`` is in the set, using object identity."""
-        return id(value) in self._value_ids_to_boxes
+        """Return whether ``value`` is in the set using value equality."""
+        return any(item == value for item in self)
 
     def __eq__(self, other: object) -> bool:
         """Return whether ``other`` is an equal, equally-ordered set.
 
         Because :class:`DoublyLinkedSet` is *ordered*, equality is order-sensitive
         (unlike a plain :class:`set`). Two sets are equal only when they contain the same
-        elements, by object identity, in the same order. Only another
+        elements by value equality, in the same order. Only another
         :class:`DoublyLinkedSet` can compare equal.
         """
         if self is other:
@@ -168,16 +177,16 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
             return NotImplemented
         if self._length != other._length:
             return False
-        return all(a is b for a, b in zip(self, other))
+        return all(a == b for a, b in zip(self, other))
 
     __hash__ = None  # type: ignore[assignment]  # ordered, mutable -> unhashable
 
     def count(self, value: object) -> int:
-        """Return the number of occurrences of ``value`` (0 or 1), using object identity."""
-        return 1 if id(value) in self._value_ids_to_boxes else 0
+        """Return the number of occurrences of ``value`` (0 or 1) using value equality."""
+        return sum(1 for item in self if item == value)
 
     def index(self, value: object, start: int = 0, stop: int | None = None) -> int:
-        """Return the index of ``value`` in the set, using object identity.
+        """Return the index of ``value`` in the set using value equality.
 
         Raises:
             ValueError: If ``value`` is not present in ``self[start:stop]``.
@@ -192,7 +201,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         for i, item in enumerate(self):
             if i >= stop:
                 break
-            if i >= start and item is value:
+            if i >= start and item == value:
                 return i
         raise ValueError(f"{value!r} is not in the set")
 
@@ -247,14 +256,16 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         """
         if new_value is None:
             raise TypeError(f"{self.__class__.__name__} does not support None values")
-        if box.value is new_value:
-            # Do nothing if the new value is the same as the old value
+        if box.value == new_value:
+            # Do nothing if the new value is equal to the old value
             return box
         if box.owning_list is not self:
             raise ValueError(f"Value {box.value!r} is not in the list")
 
-        if (new_value_id := id(new_value)) in self._value_ids_to_boxes:
-            # If the value is already in the list, remove it first
+        # Check if an equal value is already in the list
+        existing_box = self._find_box_for_equal_value(new_value)
+        if existing_box is not None:
+            # If an equal value is already in the list, remove it first
             self.remove(new_value)
 
         # Create a new _LinkBox for the new value
@@ -270,7 +281,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
 
         # Be sure to update the length and mapping
         self._length += 1
-        self._value_ids_to_boxes[new_value_id] = new_box
+        self._value_ids_to_boxes[id(new_value)] = new_box
 
         return new_box
 
@@ -464,21 +475,16 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         return DoublyLinkedSet(self)
 
     # -- Set algebra -------------------------------------------------------------------------
-    # These override the collections.abc.Set mixins so that they use identity (``id``)
-    # semantics consistently and preserve this set's (left-operand) order, even when the other
-    # operand is an equality-based container such as a built-in ``set``.
-
-    @staticmethod
-    def _ids_of(iterable: Iterable[object]) -> set[int]:
-        return {id(value) for value in iterable}
+    # These override the collections.abc.Set mixins to use value equality semantics
+    # and preserve this set's (left-operand) order.
 
     def __and__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
         if not isinstance(other, Iterable):
             return NotImplemented
-        other_ids = self._ids_of(other)
+        other_list = list(other)
         result: DoublyLinkedSet[_T] = DoublyLinkedSet()
         for value in self:
-            if id(value) in other_ids:
+            if any(value == other_value for other_value in other_list):
                 result.append(value)
         return result
 
@@ -488,7 +494,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
             return NotImplemented
         result: DoublyLinkedSet[_T] = DoublyLinkedSet()
         for value in other:
-            if id(value) in self._value_ids_to_boxes:
+            if any(value == self_value for self_value in self):
                 result.append(value)
         return result
 
@@ -511,10 +517,10 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
     def __sub__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
         if not isinstance(other, Iterable):
             return NotImplemented
-        other_ids = self._ids_of(other)
+        other_list = list(other)
         result: DoublyLinkedSet[_T] = DoublyLinkedSet()
         for value in self:
-            if id(value) not in other_ids:
+            if not any(value == other_value for other_value in other_list):
                 result.append(value)
         return result
 
@@ -523,42 +529,42 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
             return NotImplemented
         result: DoublyLinkedSet[_T] = DoublyLinkedSet()
         for value in other:
-            if id(value) not in self._value_ids_to_boxes:
+            if not any(value == self_value for self_value in self):
                 result.append(value)
         return result
 
     def __xor__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
         if not isinstance(other, Iterable):
             return NotImplemented
-        other_values = list(other)
-        other_ids = self._ids_of(other_values)
+        other_list = list(other)
         result: DoublyLinkedSet[_T] = DoublyLinkedSet()
+        # Add values from self that are not in other
         for value in self:
-            if id(value) not in other_ids:
+            if not any(value == other_value for other_value in other_list):
                 result.append(value)
-        for value in other_values:
-            if id(value) not in self._value_ids_to_boxes:
-                result.add(value)
+        # Add values from other that are not in self
+        for other_value in other_list:
+            if not any(other_value == self_value for self_value in self):
+                result.append(other_value)
         return result
 
     def __rxor__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
         # Reflected: ``other`` is the left operand, so emit its unique values first, in order.
         if not isinstance(other, Iterable):
             return NotImplemented
-        other_values = list(other)
-        other_ids = self._ids_of(other_values)
+        other_list = list(other)
         result: DoublyLinkedSet[_T] = DoublyLinkedSet()
-        for value in other_values:
-            if id(value) not in self._value_ids_to_boxes:
+        for value in other_list:
+            if not any(value == self_value for self_value in self):
                 result.append(value)
         for value in self:
-            if id(value) not in other_ids:
-                result.add(value)
+            if not any(value == other_value for other_value in other_list):
+                result.append(value)
         return result
 
     def isdisjoint(self, other: Iterable[_T]) -> bool:
-        """Return ``True`` if the set has no elements (by identity) in common with ``other``."""
-        return not any(id(value) in self._value_ids_to_boxes for value in other)
+        """Return ``True`` if the set has no elements (by equality) in common with ``other``."""
+        return not any(any(other_value == self_value for self_value in self) for other_value in other)
 
     def _unsupported_ordering(self, _other: object) -> bool:
         raise TypeError(
@@ -581,9 +587,9 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
             value: The value after which the new values are to be inserted.
             new_values: The new values to be inserted.
         """
-        if (value_id := id(value)) not in self._value_ids_to_boxes:
+        insertion_point = self._find_box_for_equal_value(value)
+        if insertion_point is None:
             raise ValueError(f"Value {value!r} is not in the list")
-        insertion_point = self._value_ids_to_boxes[value_id]
         return self._insert_many_after(insertion_point, new_values)
 
     def insert_before(
@@ -597,10 +603,10 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
             value: The value before which the new values are to be inserted.
             new_values: The new values to be inserted.
         """
-        if (value_id := id(value)) not in self._value_ids_to_boxes:
+        insertion_point_box = self._find_box_for_equal_value(value)
+        if insertion_point_box is None:
             raise ValueError(f"Value {value!r} is not in the list")
-        insertion_point = self._value_ids_to_boxes[value_id].prev
-        return self._insert_many_after(insertion_point, new_values)
+        return self._insert_many_after(insertion_point_box.prev, new_values)
 
     def __repr__(self) -> str:
         return f"DoublyLinkedSet({list(self)})"

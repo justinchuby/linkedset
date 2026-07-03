@@ -206,15 +206,17 @@ def test_len_matches_iteration():
     assert len(s) == len(list(s)) == 10
 
 
-def test_identity_semantics():
-    # The set uses object identity, not equality.
+def test_equality_semantics():
+    # The set uses value equality, not object identity.
     a = int("1000")
     b = int("1000")  # distinct object with an equal value
     assert a is not b
+    assert a == b  # but they are equal
     s = DoublyLinkedSet([a])
     s.append(b)
-    # Both distinct objects are stored.
-    assert len(s) == 2
+    # Equal objects are deduplicated, only one is stored.
+    assert len(s) == 1
+    assert list(s) == [a]  # The first one is retained
 
 
 class TestSetInterface:
@@ -224,12 +226,12 @@ class TestSetInterface:
         assert isinstance(s, MutableSet)
         assert isinstance(s, Set)
 
-    def test_contains_uses_identity(self):
+    def test_contains_uses_equality(self):
         a = int("1000")
         b = int("1000")
         s = DoublyLinkedSet([a])
         assert a in s
-        assert b not in s  # equal value, different identity
+        assert b in s  # equal value -> in set
         assert "z" not in s
 
     def test_add_is_idempotent(self):
@@ -324,21 +326,21 @@ class TestSetInterface:
         # Result follows the left operand's order, not the right's.
         assert list(DoublyLinkedSet([a, b, c]) & DoublyLinkedSet([c, b])) == [b, c]
 
-    def test_set_algebra_uses_identity_against_builtin_set(self):
+    def test_set_algebra_uses_equality_against_builtin_set(self):
         a = int("1000")
         b = int("1000")  # equal value, different identity
         s = DoublyLinkedSet([a])
-        # Difference/xor must treat `b` as a different element than `a`.
-        assert list(s - {b}) == [a]
-        assert len(s ^ {b}) == 2
-        assert s.isdisjoint({b})
-        # In-place intersect against an equality-based set keeps `a` only if `a` is present.
+        # Difference/xor treat `b` as the same element as `a` (by equality).
+        assert list(s - {b}) == []  # a == b, so a is removed
+        assert len(s ^ {b}) == 0  # symmetric difference: both have a/b
+        assert not s.isdisjoint({b})  # they share a/b
+        # In-place intersect against an equality-based set keeps `a` only if equal value is present.
         t = DoublyLinkedSet([a])
         t &= {a}
         assert list(t) == [a]
         u = DoublyLinkedSet([a])
-        u &= {b}
-        assert list(u) == []
+        u &= {b}  # b is equal to a, so intersection keeps a
+        assert list(u) == [a]
 
     def test_reflected_operators_with_builtin_set(self):
         a, b = "a", "b"
@@ -363,25 +365,25 @@ class TestSetInterface:
         assert DoublyLinkedSet([a, b]) != {a, b}
         assert DoublyLinkedSet([a, b]) != [a, b]
 
-    def test_equality_uses_identity(self):
+    def test_equality_uses_value(self):
         a = int("1000")
         b = int("1000")  # equal value, different identity
-        assert DoublyLinkedSet([a]) != DoublyLinkedSet([b])
+        # Sets with equal-valued elements should be equal
+        assert DoublyLinkedSet([a]) == DoublyLinkedSet([b])
 
     def test_instances_are_unhashable(self):
         with pytest.raises(TypeError):
             hash(DoublyLinkedSet(["a"]))
 
-    def test_index_and_count_use_identity(self):
+    def test_index_and_count_use_equality(self):
         a = int("1000")
         b = int("1000")  # equal value, different identity
         s = DoublyLinkedSet(["x", a, "y"])
         assert s.index(a) == 1
         assert s.count(a) == 1
-        # An equal-but-distinct object is treated as absent.
-        assert s.count(b) == 0
-        with pytest.raises(ValueError):
-            s.index(b)
+        # An equal-but-distinct object is treated as present.
+        assert s.count(b) == 1
+        assert s.index(b) == 1
 
     def test_index_respects_start_stop(self):
         a, b, c = "a", "b", "c"
