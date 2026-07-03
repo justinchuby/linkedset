@@ -98,8 +98,10 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         ``linked_set[0]`` and ``linked_set[-1]`` are O(1).
 
     Membership, uniqueness and set operations are based on value **equality** (``==``),
-    not object identity. Two objects that compare equal are treated as the same element.
-    Because it is a mutable set, instances are not hashable. Since the set is *ordered*, ``==``
+    not object identity. Two objects that compare equal are treated as the same element,
+    and elements must be **hashable** (they are used as keys in an internal ``dict`` that
+    gives ``O(1)`` membership and mutation). Because it is a mutable set, instances of
+    :class:`DoublyLinkedSet` are themselves not hashable. Since the set is *ordered*, ``==``
     is order-sensitive: two sets are equal only when they hold the same elements (by value)
     in the same order. ``None`` is not a valid value in the set.
     """
