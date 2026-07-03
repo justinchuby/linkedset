@@ -189,6 +189,16 @@ class TestIterationSafeMutation:
         assert seen == ["a"]
         assert list(s) == []
 
+    def test_clear_during_reverse_iteration_stops_yielding(self):
+        s = DoublyLinkedSet(["a", "b", "c"])
+        seen = []
+        for x in reversed(s):
+            seen.append(x)
+            if x == "c":
+                s.clear()
+        assert seen == ["c"]
+        assert list(s) == []
+
 
 def test_len_matches_iteration():
     s = DoublyLinkedSet(range(10))
@@ -331,6 +341,19 @@ class TestSetInterface:
         a, b = "a", "b"
         assert list({b} | DoublyLinkedSet([a])) == [b, a]
         assert list({a, b} - DoublyLinkedSet([a])) == [b]
+
+    def test_reflected_operators_preserve_left_order(self):
+        a, b, c = "a", "b", "c"
+        # With an ordered left operand, reflected ops keep that operand's order.
+        assert list([c, b, a] & DoublyLinkedSet([a, b, c])) == [c, b, a]
+        assert list([b, c] ^ DoublyLinkedSet([a, b])) == [c, a]
+
+    def test_setwise_subset_can_differ_from_order_sensitive_equality(self):
+        # Intentional: <= / >= are set-style (order-insensitive), while == is order-sensitive.
+        x = DoublyLinkedSet(["a", "b"])
+        y = DoublyLinkedSet(["b", "a"])
+        assert x <= y and y <= x
+        assert x != y
 
     def test_equality_is_order_sensitive(self):
         a, b = "a", "b"

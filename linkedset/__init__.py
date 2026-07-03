@@ -483,7 +483,15 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
                 result.append(value)
         return result
 
-    __rand__ = __and__
+    def __rand__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
+        # Reflected: ``other`` is the left operand, so honour its order.
+        if not isinstance(other, Iterable):
+            return NotImplemented
+        result: DoublyLinkedSet[_T] = DoublyLinkedSet()
+        for value in other:
+            if id(value) in self._value_ids_to_boxes:
+                result.append(value)
+        return result
 
     def __or__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
         if not isinstance(other, Iterable):
@@ -534,7 +542,20 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
                 result.add(value)
         return result
 
-    __rxor__ = __xor__
+    def __rxor__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
+        # Reflected: ``other`` is the left operand, so emit its unique values first, in order.
+        if not isinstance(other, Iterable):
+            return NotImplemented
+        other_values = list(other)
+        other_ids = self._ids_of(other_values)
+        result: DoublyLinkedSet[_T] = DoublyLinkedSet()
+        for value in other_values:
+            if id(value) not in self._value_ids_to_boxes:
+                result.append(value)
+        for value in self:
+            if id(value) not in other_ids:
+                result.add(value)
+        return result
 
     def isdisjoint(self, other: Iterable[_T]) -> bool:
         """Return ``True`` if the set has no elements (by identity) in common with ``other``."""

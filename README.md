@@ -113,6 +113,8 @@ s2 = s.copy()           # shallow copy, order preserved
   Two distinct objects that compare equal are treated as different elements.
 - `==` is **order-sensitive** (it is an *ordered* set): equal only when the same elements, by
   identity, appear in the same order. Instances are **not hashable** (mutable set).
+  Note that subset/superset comparisons (`<=`, `>=`) are set-style (order-insensitive), so
+  `a <= b and b <= a` does **not** imply `a == b`.
 - `None` is not a valid value.
 - Accessing by index is `O(n)`, except the ends (`s[0]`, `s[-1]`) which are `O(1)`.
 
