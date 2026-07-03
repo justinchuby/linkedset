@@ -278,11 +278,22 @@ class TestSetInterface:
         s &= DoublyLinkedSet([b, d])
         assert list(s) == [b]
 
-    def test_equality_is_set_semantics(self):
+    def test_equality_is_order_sensitive(self):
         a, b = "a", "b"
-        # Order-insensitive equality, as befits a set.
-        assert DoublyLinkedSet([a, b]) == DoublyLinkedSet([b, a])
-        assert DoublyLinkedSet([a, b]) == {a, b}
+        # Same elements and order -> equal.
+        assert DoublyLinkedSet([a, b]) == DoublyLinkedSet([a, b])
+        # Same elements, different order -> not equal (it is ordered).
+        assert DoublyLinkedSet([a, b]) != DoublyLinkedSet([b, a])
+        # Different length -> not equal.
+        assert DoublyLinkedSet([a, b]) != DoublyLinkedSet([a])
+        # Only another DoublyLinkedSet can compare equal.
+        assert DoublyLinkedSet([a, b]) != {a, b}
+        assert DoublyLinkedSet([a, b]) != [a, b]
+
+    def test_equality_uses_identity(self):
+        a = int("1000")
+        b = int("1000")  # equal value, different identity
+        assert DoublyLinkedSet([a]) != DoublyLinkedSet([b])
 
     def test_instances_are_unhashable(self):
         with pytest.raises(TypeError):

@@ -98,8 +98,9 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
 
     Membership, uniqueness and set operations are based on object **identity** (``id(value)``),
     not equality. Two distinct objects that compare equal are treated as different elements.
-    Because it is a mutable set, instances are not hashable, and ``==`` uses set semantics
-    (order-insensitive). ``None`` is not a valid value in the set.
+    Because it is a mutable set, instances are not hashable. Since the set is *ordered*, ``==``
+    is order-sensitive: two sets are equal only when they hold the same elements (by identity)
+    in the same order. ``None`` is not a valid value in the set.
     """
 
     __slots__ = ("_length", "_root", "_value_ids_to_boxes")
@@ -151,6 +152,24 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
     def __contains__(self, value: object) -> bool:
         """Return whether ``value`` is in the set, using object identity."""
         return id(value) in self._value_ids_to_boxes
+
+    def __eq__(self, other: object) -> bool:
+        """Return whether ``other`` is an equal, equally-ordered set.
+
+        Because :class:`DoublyLinkedSet` is *ordered*, equality is order-sensitive
+        (unlike a plain :class:`set`). Two sets are equal only when they contain the same
+        elements, by object identity, in the same order. Only another
+        :class:`DoublyLinkedSet` can compare equal.
+        """
+        if self is other:
+            return True
+        if not isinstance(other, DoublyLinkedSet):
+            return NotImplemented
+        if self._length != other._length:
+            return False
+        return all(a is b for a, b in zip(self, other))
+
+    __hash__ = None  # type: ignore[assignment]  # ordered, mutable -> unhashable
 
     def count(self, value: object) -> int:
         """Return the number of occurrences of ``value`` (0 or 1), using object identity."""

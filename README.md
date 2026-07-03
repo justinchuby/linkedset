@@ -77,14 +77,17 @@ a.discard("z")    # remove if present, never raises
 a.pop()           # remove and return the first element
 a |= b            # in-place update
 
-DoublyLinkedSet(["a", "b"]) == DoublyLinkedSet(["b", "a"])  # True (set equality)
+# `==` is order-sensitive, because the set is ordered:
+DoublyLinkedSet(["a", "b"]) == DoublyLinkedSet(["a", "b"])  # True
+DoublyLinkedSet(["a", "b"]) == DoublyLinkedSet(["b", "a"])  # False
 ```
 
 ## Semantics
 
 - Membership and set operations are based on object **identity** (`id(value)`), not equality.
   Two distinct objects that compare equal are treated as different elements.
-- `==` uses **set** semantics (order-insensitive); instances are **not hashable** (mutable set).
+- `==` is **order-sensitive** (it is an *ordered* set): equal only when the same elements, by
+  identity, appear in the same order. Instances are **not hashable** (mutable set).
 - `None` is not a valid value.
 - Accessing by index is `O(n)`, except the ends (`s[0]`, `s[-1]`) which are `O(1)`.
 
