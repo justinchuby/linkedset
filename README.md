@@ -60,6 +60,10 @@ Iteration rules:
 - If the current node is moved to a different location, iteration continues from the node
   that followed it at its *original* location.
 
+Per-element mutation (`add`, `remove`, `discard`, `append`, `insert`, `clear`, …) is safe
+during iteration. The **global reorders** `reverse()` and `rotate()` are *not* — calling them
+mid-iteration may cause an in-progress iterator to skip or repeat elements.
+
 ### Set operations
 
 Because it is a `MutableSet`, the usual set algebra works and returns a new

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, MutableSet, Sequence
+from collections.abc import Set as AbstractSet
 from typing import Generic, TypeVar, overload
 
 __all__ = ["DoublyLinkedSet"]
@@ -397,14 +398,30 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         return value
 
     def clear(self) -> None:
-        """Remove all elements from the set."""
+        """Remove all elements from the set.
+
+        Safe to call during iteration: existing nodes are marked erased (so a live iterator
+        stops yielding them) before the set is reset.
+        """
+        box = self._root.next
+        while box is not self._root:
+            # Detach the value but keep next/prev intact so a live iterator can still advance.
+            nxt = box.next
+            box.value = None
+            box = nxt
         self._root.prev = self._root
         self._root.next = self._root
         self._length = 0
         self._value_ids_to_boxes.clear()
 
     def reverse(self) -> None:
-        """Reverse the elements of the set in place."""
+        """Reverse the elements of the set in place.
+
+        Note:
+            Unlike per-element mutation, this is a global reorder and is **not** safe to call
+            while iterating over the set: an in-progress iterator may then skip or repeat
+            elements.
+        """
         node = self._root.next
         while node is not self._root:
             nxt = node.next
@@ -416,6 +433,10 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         """Rotate the set ``n`` steps to the right (deque-style).
 
         Negative ``n`` rotates to the left. ``rotate(1)`` moves the last element to the front.
+
+        Note:
+            Like :meth:`reverse`, this is a global reorder and is **not** safe to call while
+            iterating over the set.
         """
         length = self._length
         if length <= 1:
@@ -442,6 +463,103 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
     def copy(self) -> DoublyLinkedSet[_T]:
         """Return a shallow copy of the set, preserving order."""
         return DoublyLinkedSet(self)
+
+    # -- Set algebra -------------------------------------------------------------------------
+    # These override the collections.abc.Set mixins so that they use identity (``id``)
+    # semantics consistently and preserve this set's (left-operand) order, even when the other
+    # operand is an equality-based container such as a built-in ``set``.
+
+    @staticmethod
+    def _ids_of(iterable: Iterable[object]) -> set[int]:
+        return {id(value) for value in iterable}
+
+    def __and__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
+        if not isinstance(other, Iterable):
+            return NotImplemented
+        other_ids = self._ids_of(other)
+        result: DoublyLinkedSet[_T] = DoublyLinkedSet()
+        for value in self:
+            if id(value) in other_ids:
+                result.append(value)
+        return result
+
+    __rand__ = __and__
+
+    def __or__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
+        if not isinstance(other, Iterable):
+            return NotImplemented
+        result = self.copy()
+        for value in other:
+            result.add(value)
+        return result
+
+    def __ror__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
+        if not isinstance(other, Iterable):
+            return NotImplemented
+        result: DoublyLinkedSet[_T] = DoublyLinkedSet(other)
+        for value in self:
+            result.add(value)
+        return result
+
+    def __sub__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
+        if not isinstance(other, Iterable):
+            return NotImplemented
+        other_ids = self._ids_of(other)
+        result: DoublyLinkedSet[_T] = DoublyLinkedSet()
+        for value in self:
+            if id(value) not in other_ids:
+                result.append(value)
+        return result
+
+    def __rsub__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
+        if not isinstance(other, Iterable):
+            return NotImplemented
+        result: DoublyLinkedSet[_T] = DoublyLinkedSet()
+        for value in other:
+            if id(value) not in self._value_ids_to_boxes:
+                result.append(value)
+        return result
+
+    def __xor__(self, other: Iterable[_T]) -> DoublyLinkedSet[_T]:
+        if not isinstance(other, Iterable):
+            return NotImplemented
+        other_values = list(other)
+        other_ids = self._ids_of(other_values)
+        result: DoublyLinkedSet[_T] = DoublyLinkedSet()
+        for value in self:
+            if id(value) not in other_ids:
+                result.append(value)
+        for value in other_values:
+            if id(value) not in self._value_ids_to_boxes:
+                result.add(value)
+        return result
+
+    __rxor__ = __xor__
+
+    def isdisjoint(self, other: Iterable[_T]) -> bool:
+        """Return ``True`` if the set has no elements (by identity) in common with ``other``."""
+        return not any(id(value) in self._value_ids_to_boxes for value in other)
+
+    def __le__(self, other: object) -> bool:
+        if not isinstance(other, AbstractSet):
+            return NotImplemented
+        other_ids = self._ids_of(other)
+        return all(id(value) in other_ids for value in self)
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, AbstractSet):
+            return NotImplemented
+        return len(self) < len(other) and self.__le__(other)
+
+    def __ge__(self, other: object) -> bool:
+        if not isinstance(other, AbstractSet):
+            return NotImplemented
+        return all(id(value) in self._value_ids_to_boxes for value in other)
+
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, AbstractSet):
+            return NotImplemented
+        return len(self) > len(other) and self.__ge__(other)
 
     def insert_after(
         self,

@@ -179,6 +179,16 @@ class TestIterationSafeMutation:
         assert seen == ["a", "b", "c", "a"]
         assert list(s) == ["b", "c", "a"]
 
+    def test_clear_during_iteration_stops_yielding(self):
+        s = DoublyLinkedSet(["a", "b", "c"])
+        seen = []
+        for x in s:
+            seen.append(x)
+            if x == "a":
+                s.clear()
+        assert seen == ["a"]
+        assert list(s) == []
+
 
 def test_len_matches_iteration():
     s = DoublyLinkedSet(range(10))
@@ -288,6 +298,39 @@ class TestSetInterface:
         assert list(s) == [b, c]
         s &= DoublyLinkedSet([b, d])
         assert list(s) == [b]
+
+    def test_in_place_xor(self):
+        a, b, c = "a", "b", "c"
+        s = DoublyLinkedSet([a, b])
+        s ^= DoublyLinkedSet([b, c])
+        assert list(s) == [a, c]
+
+    def test_intersection_preserves_left_order(self):
+        a, b, c = "a", "b", "c"
+        # Result follows the left operand's order, not the right's.
+        assert list(DoublyLinkedSet([a, b, c]) & DoublyLinkedSet([c, b])) == [b, c]
+
+    def test_set_algebra_uses_identity_against_builtin_set(self):
+        a = int("1000")
+        b = int("1000")  # equal value, different identity
+        s = DoublyLinkedSet([a])
+        # Difference/xor/subset must treat `b` as a different element than `a`.
+        assert list(s - {b}) == [a]
+        assert len(s ^ {b}) == 2
+        assert s.isdisjoint({b})
+        assert not (s <= {b})
+        # In-place intersect against an equality-based set keeps `a` only if `a` is present.
+        t = DoublyLinkedSet([a])
+        t &= {a}
+        assert list(t) == [a]
+        u = DoublyLinkedSet([a])
+        u &= {b}
+        assert list(u) == []
+
+    def test_reflected_operators_with_builtin_set(self):
+        a, b = "a", "b"
+        assert list({b} | DoublyLinkedSet([a])) == [b, a]
+        assert list({a, b} - DoublyLinkedSet([a])) == [b]
 
     def test_equality_is_order_sensitive(self):
         a, b = "a", "b"
