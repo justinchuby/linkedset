@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import operator
 from collections.abc import MutableSet, Sequence, Set
 
 import pytest
@@ -290,14 +291,17 @@ class TestSetInterface:
         a, b, c, d = "a", "b", "c", "d"
         assert list(DoublyLinkedSet([a, b, c]) ^ DoublyLinkedSet([b, c, d])) == [a, d]
 
-    def test_subset_superset_and_disjoint(self):
+    def test_isdisjoint(self):
         a, b, c, d = "a", "b", "c", "d"
         full = DoublyLinkedSet([a, b, c])
-        assert DoublyLinkedSet([a, b]) <= full
-        assert full >= DoublyLinkedSet([a, b])
-        assert DoublyLinkedSet([a, b]) < full
         assert full.isdisjoint(DoublyLinkedSet([d]))
         assert not full.isdisjoint(DoublyLinkedSet([a]))
+
+    def test_ordering_comparisons_raise(self):
+        a, b = DoublyLinkedSet(["a"]), DoublyLinkedSet(["a", "b"])
+        for op in (operator.le, operator.lt, operator.ge, operator.gt):
+            with pytest.raises(TypeError):
+                op(a, b)
 
     def test_in_place_operators(self):
         a, b, c, d = "a", "b", "c", "d"
@@ -324,11 +328,10 @@ class TestSetInterface:
         a = int("1000")
         b = int("1000")  # equal value, different identity
         s = DoublyLinkedSet([a])
-        # Difference/xor/subset must treat `b` as a different element than `a`.
+        # Difference/xor must treat `b` as a different element than `a`.
         assert list(s - {b}) == [a]
         assert len(s ^ {b}) == 2
         assert s.isdisjoint({b})
-        assert not (s <= {b})
         # In-place intersect against an equality-based set keeps `a` only if `a` is present.
         t = DoublyLinkedSet([a])
         t &= {a}
@@ -347,13 +350,6 @@ class TestSetInterface:
         # With an ordered left operand, reflected ops keep that operand's order.
         assert list([c, b, a] & DoublyLinkedSet([a, b, c])) == [c, b, a]
         assert list([b, c] ^ DoublyLinkedSet([a, b])) == [c, a]
-
-    def test_setwise_subset_can_differ_from_order_sensitive_equality(self):
-        # Intentional: <= / >= are set-style (order-insensitive), while == is order-sensitive.
-        x = DoublyLinkedSet(["a", "b"])
-        y = DoublyLinkedSet(["b", "a"])
-        assert x <= y and y <= x
-        assert x != y
 
     def test_equality_is_order_sensitive(self):
         a, b = "a", "b"

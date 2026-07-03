@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, MutableSet, Sequence
-from collections.abc import Set as AbstractSet
 from typing import Generic, TypeVar, overload
 
 __all__ = ["DoublyLinkedSet"]
@@ -561,26 +560,15 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         """Return ``True`` if the set has no elements (by identity) in common with ``other``."""
         return not any(id(value) in self._value_ids_to_boxes for value in other)
 
-    def __le__(self, other: object) -> bool:
-        if not isinstance(other, AbstractSet):
-            return NotImplemented
-        other_ids = self._ids_of(other)
-        return all(id(value) in other_ids for value in self)
+    def _unsupported_ordering(self, _other: object) -> bool:
+        raise TypeError(
+            f"{type(self).__name__} does not support ordering/subset comparisons "
+            "(<, <=, >, >=) because '==' is order-sensitive; "
+            "use set algebra (&, |, -, ^) or isdisjoint() instead"
+        )
 
-    def __lt__(self, other: object) -> bool:
-        if not isinstance(other, AbstractSet):
-            return NotImplemented
-        return len(self) < len(other) and self.__le__(other)
-
-    def __ge__(self, other: object) -> bool:
-        if not isinstance(other, AbstractSet):
-            return NotImplemented
-        return all(id(value) in self._value_ids_to_boxes for value in other)
-
-    def __gt__(self, other: object) -> bool:
-        if not isinstance(other, AbstractSet):
-            return NotImplemented
-        return len(self) > len(other) and self.__ge__(other)
+    # Subset/superset ordering would clash with the order-sensitive ``==``, so it is disabled.
+    __lt__ = __le__ = __gt__ = __ge__ = _unsupported_ordering
 
     def insert_after(
         self,

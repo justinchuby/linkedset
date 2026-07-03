@@ -113,8 +113,9 @@ s2 = s.copy()           # shallow copy, order preserved
   Two distinct objects that compare equal are treated as different elements.
 - `==` is **order-sensitive** (it is an *ordered* set): equal only when the same elements, by
   identity, appear in the same order. Instances are **not hashable** (mutable set).
-  Note that subset/superset comparisons (`<=`, `>=`) are set-style (order-insensitive), so
-  `a <= b and b <= a` does **not** imply `a == b`.
+  Ordering/subset comparisons (`<`, `<=`, `>`, `>=`) are **not supported** (they raise
+  `TypeError`), since a subset relation would be ambiguous next to order-sensitive equality;
+  use the set algebra (`&`, `|`, `-`, `^`) or `isdisjoint()` instead.
 - `None` is not a valid value.
 - Accessing by index is `O(n)`, except the ends (`s[0]`, `s[-1]`) which are `O(1)`.
 
@@ -145,7 +146,7 @@ operations).
 | iteration, `reversed(s)`, `s == other` | `O(n)` | |
 | `s[a:b]` (slice) | `O(n)` | materialises a tuple |
 | `s \| t`, `s & t`, `s - t`, `s ^ t` | `O(n + m)` | each membership test is `O(1)` |
-| `s <= t`, `s < t`, `s.isdisjoint(t)` | `O(n)` | one pass with `O(1)` lookups |
+| `s.isdisjoint(t)` | `O(n)` | one pass with `O(1)` lookups |
 
 Space is `O(n)`: every element is wrapped in a small link node and referenced once from the
 `id`-keyed index.
