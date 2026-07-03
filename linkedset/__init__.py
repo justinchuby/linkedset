@@ -152,13 +152,6 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         )
         return self._length
 
-    def _find_box_for_equal_value(self, value: object) -> _LinkBox[_T] | None:
-        """Find and return the box containing a value equal to the given value.
-
-        This uses the dictionary for O(1) lookup. Values must be hashable.
-        """
-        return self._value_to_boxes.get(value)
-
     def __contains__(self, value: object) -> bool:
         """Return whether ``value`` is in the set using value equality (O(1))."""
         return value in self._value_to_boxes
@@ -262,10 +255,8 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         if box.owning_list is not self:
             raise ValueError(f"Value {box.value!r} is not in the list")
 
-        # Check if an equal value is already in the list
-        existing_box = self._find_box_for_equal_value(new_value)
-        if existing_box is not None:
-            # If an equal value is already in the list, remove it first
+        # If an equal value is already in the list, remove it first
+        if new_value in self._value_to_boxes:
             self.remove(new_value)
 
         # Create a new _LinkBox for the new value
@@ -589,7 +580,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
             value: The value after which the new values are to be inserted.
             new_values: The new values to be inserted.
         """
-        insertion_point = self._find_box_for_equal_value(value)
+        insertion_point = self._value_to_boxes.get(value)
         if insertion_point is None:
             raise ValueError(f"Value {value!r} is not in the list")
         return self._insert_many_after(insertion_point, new_values)
@@ -605,7 +596,7 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
             value: The value before which the new values are to be inserted.
             new_values: The new values to be inserted.
         """
-        insertion_point_box = self._find_box_for_equal_value(value)
+        insertion_point_box = self._value_to_boxes.get(value)
         if insertion_point_box is None:
             raise ValueError(f"Value {value!r} is not in the list")
         return self._insert_many_after(insertion_point_box.prev, new_values)
