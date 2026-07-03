@@ -9,6 +9,8 @@ safely add, remove, or move elements *while iterating over the container*.
 It implements both `collections.abc.Sequence` (ordered, indexable) and
 `collections.abc.MutableSet` (set algebra and in-place updates).
 
+📖 **Documentation**: <https://justinchuby.github.io/linkedset/>
+
 ## Installation
 
 ```bash

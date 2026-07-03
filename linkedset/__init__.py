@@ -84,12 +84,13 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
     from one set to another is also safe.
 
     During the iteration:
+
     - If new elements are inserted after the current node, the iterator will
-        iterate over them as well.
+      iterate over them as well.
     - If new elements are inserted before the current node, they will
-        not be iterated over in this iteration.
+      not be iterated over in this iteration.
     - If the current node is lifted and inserted in a different location,
-        iteration will start from the "next" node at the _original_ location.
+      iteration will start from the "next" node at the _original_ location.
 
     Time complexity:
         Inserting and removing nodes from the set is O(1). Accessing nodes by index is O(n),
@@ -119,11 +120,11 @@ class DoublyLinkedSet(Sequence[_T], MutableSet[_T], Generic[_T]):
         """Iterate over the elements in the list.
 
         - If new elements are inserted after the current node, the iterator will
-            iterate over them as well.
+          iterate over them as well.
         - If new elements are inserted before the current node, they will
-            not be iterated over in this iteration.
+          not be iterated over in this iteration.
         - If the current node is lifted and inserted in a different location,
-            iteration will start from the "next" node at the _original_ location.
+          iteration will start from the "next" node at the _original_ location.
         """
         box = self._root.next
         while box is not self._root:

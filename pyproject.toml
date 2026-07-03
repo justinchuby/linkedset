@@ -27,11 +27,13 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/justinchuby/linkedset"
+Documentation = "https://justinchuby.github.io/linkedset/"
 Repository = "https://github.com/justinchuby/linkedset"
 Issues = "https://github.com/justinchuby/linkedset/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "ruff"]
+docs = ["sphinx>=7", "furo", "myst-parser"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["linkedset"]
